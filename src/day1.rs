@@ -23,9 +23,7 @@ pub fn solve(input: &str) -> u32 {
     let (mut l, mut r) = parse(input);
     l.sort();
     r.sort();
-    zip(l, r)
-        .map(|(a, b)| (a as i64 - b as i64).abs() as u32)
-        .sum()
+    zip(l, r).map(|(a, b)| a.abs_diff(b)).sum()
 }
 
 pub fn solve_2(input: &str) -> u32 {
