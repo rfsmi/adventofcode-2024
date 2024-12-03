@@ -45,7 +45,10 @@ fn run<const P2: bool>(input: &str) -> u32 {
     sum
 }
 
+#[allow(non_upper_case_globals)]
 pub const solve: fn(&str) -> u32 = run::<false>;
+
+#[allow(non_upper_case_globals)]
 pub const solve_2: fn(&str) -> u32 = run::<true>;
 
 #[cfg(test)]
