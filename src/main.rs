@@ -13,6 +13,7 @@ utils::make_runner!(
     1+,
     2+,
     3+,
+    4+,
 );
 
 fn main() {
