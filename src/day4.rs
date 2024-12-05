@@ -48,42 +48,26 @@ pub fn solve_2(input: &str) -> usize {
 #[cfg(test)]
 mod test {
     use super::*;
+    const SAMPLE: &'static str = "
+        MMMSXXMASM
+        MSAMXMSMSA
+        AMXSXMAAMM
+        MSAMASMSMX
+        XMASAMXAMM
+        XXAMMXXAMA
+        SMSMSASXSS
+        SAXAMASAAA
+        MAMMMXMMMM
+        MXMXAXMASX
+    ";
 
     #[test]
     fn test_sample() {
-        assert_eq!(
-            solve(
-                "MMMSXXMASM
-                MSAMXMSMSA
-                AMXSXMAAMM
-                MSAMASMSMX
-                XMASAMXAMM
-                XXAMMXXAMA
-                SMSMSASXSS
-                SAXAMASAAA
-                MAMMMXMMMM
-                MXMXAXMASX"
-            ),
-            18
-        )
+        assert_eq!(solve(SAMPLE), 18)
     }
 
     #[test]
     fn test_sample_2() {
-        assert_eq!(
-            solve_2(
-                "MMMSXXMASM
-                MSAMXMSMSA
-                AMXSXMAAMM
-                MSAMASMSMX
-                XMASAMXAMM
-                XXAMMXXAMA
-                SMSMSASXSS
-                SAXAMASAAA
-                MAMMMXMMMM
-                MXMXAXMASX"
-            ),
-            9
-        )
+        assert_eq!(solve_2(SAMPLE), 9)
     }
 }
