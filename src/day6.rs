@@ -1,62 +1,68 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::from_fn,
+};
 
-use itertools::{iproduct, Itertools};
+use itertools::Itertools;
 
-fn parse(input: &str) -> HashMap<(i32, i32), char> {
+fn parse(input: &str) -> (HashMap<(i32, i32), char>, (i32, i32)) {
+    let mut start = None;
     let mut result = HashMap::new();
     for (y, line) in input.trim().lines().enumerate() {
         for (x, c) in line.trim().chars().enumerate() {
-            result.insert((y as i32, x as i32), c);
+            let pos = (y as i32, x as i32);
+            result.insert(pos, c);
+            if c == '^' {
+                start = Some(pos);
+            }
         }
     }
-    result
+    (result, start.unwrap())
 }
 
-fn escapes(
+fn walk(
     grid: &HashMap<(i32, i32), char>,
     mut pos: (i32, i32),
     mut dir: (i32, i32),
-) -> Option<usize> {
-    let mut visited: HashSet<((i32, i32), (i32, i32))> = HashSet::new();
-    while visited.insert((pos, dir)) {
+) -> impl Iterator<Item = ((i32, i32), (i32, i32))> + '_ {
+    from_fn(move || {
         let next_pos = (pos.0 + dir.0, pos.1 + dir.1);
-        let Some(&c) = grid.get(&next_pos) else {
-            return Some(visited.into_iter().unique_by(|&(pos, _)| pos).count());
-        };
-        if c == '#' {
+        if *grid.get(&next_pos)? == '#' {
             dir = (dir.1, -dir.0);
         } else {
             pos = next_pos;
         }
-    }
-    None
+        Some((pos, dir))
+    })
+    .fuse()
 }
 
 pub fn solve(input: &str) -> usize {
-    let grid = parse(input);
-    let pos = grid
-        .iter()
-        .find_map(|(&pos, &c)| if c == '^' { Some(pos) } else { None })
-        .unwrap();
-    escapes(&grid, pos, (-1, 0)).unwrap()
+    let (grid, pos) = parse(input);
+    walk(&grid, pos, (-1, 0)).unique_by(|&(pos, _)| pos).count()
 }
 
 pub fn solve_2(input: &str) -> usize {
-    let grid = parse(input);
-    let start = grid
-        .iter()
-        .find_map(|(&pos, &c)| if c == '^' { Some(pos) } else { None })
-        .unwrap();
-    let &min = grid.keys().min().unwrap();
-    let &max = grid.keys().max().unwrap();
-    iproduct!(min.0 - 1..=max.0 + 1, min.1 - 1..=max.1 + 1)
-        .filter(|&pos| pos != start)
-        .filter(|&pos| {
-            let mut grid = grid.clone();
-            grid.insert(pos, '#');
-            escapes(&grid, start, (-1, 0)).is_none()
-        })
-        .count()
+    let (grid, start) = parse(input);
+    let dir = (-1, 0);
+    let mut visited_dirs: HashSet<((i32, i32), (i32, i32))> = HashSet::new();
+    let mut visited: HashSet<(i32, i32)> = HashSet::new();
+    let mut result = 0;
+    for (pos, dir) in walk(&grid, start, dir) {
+        visited_dirs.insert((pos, dir));
+        visited.insert(pos);
+        let block_pos = (pos.0 + dir.0, pos.1 + dir.1);
+        if visited.contains(&block_pos) || matches!(grid.get(&block_pos), Some('#' | '^')) {
+            continue;
+        }
+        let mut grid = grid.clone();
+        grid.insert(block_pos, '#');
+        let mut visited_dirs = visited_dirs.clone();
+        if walk(&grid, pos, (dir.1, -dir.0)).any(|k| !visited_dirs.insert(k)) {
+            result += 1;
+        }
+    }
+    result
 }
 
 #[cfg(test)]
