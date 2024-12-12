@@ -1,79 +1,74 @@
-use itertools::Itertools;
+use std::{cmp::Reverse, collections::BinaryHeap, mem::take};
 
-fn parse(input: &str) -> Vec<(u64, u64, u64)> {
-    let mut nums = Vec::new();
-    for c in input.trim().chars() {
-        nums.push(c.to_digit(10).unwrap() as u64);
-    }
-    if nums.len() % 2 != 0 {
-        nums.push(0);
-    }
-    let mut counts = Vec::new();
-    for (id, (num, trailing_space)) in nums.into_iter().tuples().enumerate() {
-        counts.push((num, id as u64, trailing_space));
-    }
-    counts
+struct File {
+    len: usize,
+    val: usize,
 }
 
-fn checksum(counts: &[(u64, u64, u64)]) -> u64 {
-    let (mut sum, mut pos) = (0, 0);
-    for (n, id, space) in counts {
-        sum += id * n * pos;
-        sum += id * n * (n - 1) / 2;
-        pos += n + space;
-    }
-    sum
+struct FS {
+    files: Vec<(usize, File)>,
+    empty_pos: [BinaryHeap<Reverse<usize>>; 10],
 }
 
-pub fn solve(input: &str) -> u64 {
-    let mut counts = parse(input);
-    let mut i = 0;
-    while i < counts.len() {
-        let (n, id, space) = counts[i];
-        if space == 0 {
-            i += 1;
-            continue;
+impl FS {
+    fn new(input: &str) -> Self {
+        let mut files = Vec::new();
+        let mut empty_pos: [BinaryHeap<Reverse<usize>>; 10] = Default::default();
+        let mut pos = 0;
+        for (i, c) in input.trim().chars().enumerate() {
+            let len = c.to_digit(10).unwrap() as usize;
+            if i % 2 == 0 {
+                files.push((pos, File { len, val: i / 2 }));
+            } else {
+                empty_pos[len].push(Reverse(pos));
+            }
+            pos += len;
         }
-        let j = counts.len() - 1;
-        if i >= j {
-            break;
-        }
-        let (n1, id1, _) = counts[j];
-        if n1 <= space {
-            counts[i] = (n, id, 0);
-            counts.remove(j);
-            counts.insert(i + 1, (n1, id1, space - n1));
-        } else {
-            counts[i] = (n, id, 0);
-            counts[j] = (n1 - space, id1, 0);
-            counts.insert(i + 1, (space, id1, 0));
-        }
+        Self { files, empty_pos }
     }
-    checksum(&counts)
+
+    fn split_files(mut self) -> Self {
+        for (pos, file) in take(&mut self.files).into_iter() {
+            for i in 0..file.len {
+                self.files.push((pos + i, File { len: 1, ..file }));
+            }
+        }
+        self
+    }
+
+    fn compact(mut self) -> Vec<(usize, File)> {
+        for (mut pos, file) in take(&mut self.files).into_iter().rev() {
+            let first_space = (file.len..self.empty_pos.len())
+                .into_iter()
+                .filter(|&i| !self.empty_pos[i].is_empty())
+                .filter(|&i| self.empty_pos[i].peek().unwrap().0 < pos)
+                .min_by_key(|&i| self.empty_pos[i].peek().unwrap().0);
+            if let Some(space) = first_space {
+                pos = self.empty_pos[space].pop().unwrap().0;
+                if space > file.len {
+                    self.empty_pos[space - file.len].push(Reverse(pos + file.len));
+                }
+            };
+            self.files.push((pos, file))
+        }
+        self.files.sort_by_key(|&(pos, _)| pos);
+        self.files
+    }
 }
 
-pub fn solve_2(input: &str) -> u64 {
-    let mut counts = parse(input);
-    let mut min_id = u64::MAX;
-    let mut j = counts.len() - 1;
-    while j > 0 {
-        let (n, id, space) = counts[j];
-        if id >= min_id {
-            j -= 1;
-            continue;
-        }
-        min_id = id;
-        let Some(i) = (0..j).find(|&i| counts[i].2 >= n) else {
-            j -= 1;
-            continue;
-        };
-        let (n1, id1, space1) = counts[i];
-        counts[i] = (n1, id1, 0);
-        counts.remove(j);
-        counts.insert(i + 1, (n, id, space1 - n));
-        counts[j].2 += n + space;
-    }
-    checksum(&counts)
+fn checksum(files: impl IntoIterator<Item = (usize, File)>) -> usize {
+    files
+        .into_iter()
+        .map(|(pos, File { len, val })| val * len * (2 * pos + len - 1) / 2)
+        .sum()
+}
+
+pub fn solve(input: &str) -> usize {
+    checksum(FS::new(input).split_files().compact())
+}
+
+pub fn solve_2(input: &str) -> usize {
+    checksum(FS::new(input).compact())
 }
 
 #[cfg(test)]
