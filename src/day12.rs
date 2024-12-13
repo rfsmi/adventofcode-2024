@@ -1,6 +1,8 @@
 use core::str;
 use std::collections::{HashMap, HashSet};
 
+use itertools::iproduct;
+
 fn parse(input: &str) -> HashMap<(i32, i32), char> {
     let mut map = HashMap::new();
     for (y, line) in input.trim().lines().enumerate() {
@@ -34,37 +36,25 @@ fn find_regions(map: HashMap<(i32, i32), char>) -> Vec<HashSet<(i32, i32)>> {
 fn count_perimeter(region: HashSet<(i32, i32)>) -> usize {
     region
         .iter()
-        .map(|&(y, x)| {
-            [(-1, 0), (1, 0), (0, -1), (0, 1)]
-                .into_iter()
-                .map(|(dy, dx)| (y + dy, x + dx))
-                .filter(|p| !region.contains(p))
-                .count()
-        })
-        .sum()
+        .flat_map(|(y, x)| [(-1, 0), (1, 0), (0, -1), (0, 1)].map(|(dy, dx)| (y + dy, x + dx)))
+        .filter(|p| !region.contains(p))
+        .count()
 }
 
-fn count_sides(mut region: HashSet<(i32, i32)>) -> usize {
-    let mut sides = 0;
-    for _ in 0..4 {
-        region = region.into_iter().map(|(y, x)| (x, -y)).collect();
-        let &min_y = region.iter().map(|(y, _)| y).min().unwrap();
-        let &max_y = region.iter().map(|(y, _)| y).max().unwrap();
-        let &min_x = region.iter().map(|(_, x)| x).min().unwrap();
-        let &max_x = region.iter().map(|(_, x)| x).max().unwrap();
-        for y in min_y..=max_y {
-            let mut last = false;
-            for x in min_x..=max_x {
-                let upper = region.contains(&(y - 1, x));
-                let lower = region.contains(&(y, x));
-                if lower && !upper && !last {
-                    sides += 1;
-                }
-                last = lower && !upper;
-            }
-        }
-    }
-    sides
+fn count_sides(region: HashSet<(i32, i32)>) -> usize {
+    region
+        .iter()
+        .flat_map(|(y, x)| {
+            iproduct!([-1, 1], [-1, 1]).map(|(dy, dx)| {
+                (
+                    region.contains(&(*y + dy, *x + dx)),
+                    region.contains(&(*y, *x + dx)),
+                    region.contains(&(*y + dy, *x)),
+                )
+            })
+        })
+        .filter(|&(a, b, c)| !b && !c || !a && b && c)
+        .count()
 }
 
 pub fn solve(input: &str) -> usize {
