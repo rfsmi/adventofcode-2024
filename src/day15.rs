@@ -3,59 +3,38 @@ use std::collections::{HashMap, HashSet};
 #[derive(Default)]
 struct Map {
     walls: HashSet<(i32, i32)>,
-    boxes: HashMap<(i32, i32), usize>,
+    box_ids: HashMap<(i32, i32), usize>,
     box_positions: Vec<Vec<(i32, i32)>>,
     robot: (i32, i32),
 }
 
 impl Map {
-    fn push(&self, box_id: usize, (dy, dx): (i32, i32)) -> Option<HashSet<usize>> {
-        let mut ids = HashSet::new();
-        let mut stack = Vec::new();
-        for &pos in &self.box_positions[box_id] {
-            stack.push((box_id, pos));
-        }
-        while let Some((id, (y, x))) = stack.pop() {
-            let (y, x) = (y + dy, x + dx);
-            if self.walls.contains(&(y, x)) {
-                return None;
-            }
-            ids.insert(id);
-            if let Some(&next_id) = self.boxes.get(&(y, x)) {
-                if next_id != id {
-                    for &pos in &self.box_positions[next_id] {
-                        stack.push((next_id, pos));
-                    }
-                }
-            };
-        }
-        Some(ids)
-    }
-
     fn step(&mut self, (dy, dx): (i32, i32)) {
-        let (y, x) = (self.robot.0 + dy, self.robot.1 + dx);
-        if self.walls.contains(&(y, x)) {
-            return;
-        }
-        if let Some(&box_id) = self.boxes.get(&(y, x)) {
-            let Some(move_ids) = self.push(box_id, (dy, dx)) else {
+        let first_pos = (self.robot.0 + dy, self.robot.1 + dx);
+        let mut move_ids = HashSet::new();
+        let mut stack = vec![first_pos];
+        while let Some((y, x)) = stack.pop() {
+            if self.walls.contains(&(y, x)) {
                 return;
-            };
-            // Remove boxes from their old positions
-            for &id in &move_ids {
-                for (y, x) in &mut self.box_positions[id] {
-                    self.boxes.remove(&(*y, *x));
-                    (*y, *x) = (*y + dy, *x + dx);
-                }
             }
-            // Insert boxes at their new positions
-            for id in move_ids {
-                for &pos in &self.box_positions[id] {
-                    self.boxes.insert(pos, id);
+            if let Some(&id) = self.box_ids.get(&(y, x)) {
+                if move_ids.insert(id) {
+                    stack.extend(self.box_positions[id].iter().map(|(y, x)| (y + dy, x + dx)));
                 }
             }
         }
-        self.robot = (y, x);
+        for &id in &move_ids {
+            for (y, x) in &mut self.box_positions[id] {
+                self.box_ids.remove(&(*y, *x));
+                (*y, *x) = (*y + dy, *x + dx);
+            }
+        }
+        for id in move_ids {
+            for &pos in &self.box_positions[id] {
+                self.box_ids.insert(pos, id);
+            }
+        }
+        self.robot = first_pos;
     }
 
     fn gps(&self) -> i64 {
@@ -81,14 +60,13 @@ fn compute<const P2: bool>(input: &str) -> i64 {
                 vec![(y as i32, x as i32)]
             };
             match c {
-                '@' => map.robot = positions[0],
+                '@' => map.robot = positions.into_iter().min().unwrap(),
                 '#' => {
                     map.walls.extend(positions);
                 }
                 'O' => {
-                    for &pos in &positions {
-                        map.boxes.insert(pos, map.box_positions.len());
-                    }
+                    let id = map.box_positions.len();
+                    map.box_ids.extend(positions.iter().map(|&pos| (pos, id)));
                     map.box_positions.push(positions);
                 }
                 _ => (),
