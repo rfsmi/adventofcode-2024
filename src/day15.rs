@@ -37,16 +37,16 @@ impl Map {
         self.robot = first_pos;
     }
 
-    fn gps(&self) -> i64 {
+    fn gps(&self) -> i32 {
         self.box_positions
             .iter()
             .flat_map(|positions| positions.iter().min())
-            .map(|&(y, x)| (100 * y + x) as i64)
+            .map(|&(y, x)| 100 * y + x)
             .sum()
     }
 }
 
-fn compute<const P2: bool>(input: &str) -> i64 {
+fn compute<const P2: bool>(input: &str) -> i32 {
     let mut map = Map::default();
     let mut lines = input.trim().lines().enumerate();
     while let Some((y, line)) = lines.next() {
@@ -86,11 +86,11 @@ fn compute<const P2: bool>(input: &str) -> i64 {
     map.gps()
 }
 
-pub fn solve(input: &str) -> i64 {
+pub fn solve(input: &str) -> i32 {
     compute::<false>(input)
 }
 
-pub fn solve_2(input: &str) -> i64 {
+pub fn solve_2(input: &str) -> i32 {
     compute::<true>(input)
 }
 
