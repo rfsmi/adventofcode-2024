@@ -65,8 +65,8 @@ impl VM {
             match op {
                 1 => self.reg[1] ^= self.last_literal(),
                 2 => self.reg[1] = self.last_combo() & 0x07,
-                3 if self.reg[0] != 0 => self.ip = self.last_literal() as usize,
-                3 => (),
+                3 if self.reg[0] == 0 => (),
+                3 => self.ip = self.last_literal() as usize,
                 4 => self.reg[1] ^= self.reg[2],
                 5 => return Some(self.last_combo() & 0x07),
                 6 => self.reg[1] = self.reg[0] >> self.last_combo(),
