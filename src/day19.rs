@@ -1,11 +1,10 @@
-fn parse(input: &str) -> (Vec<&[u8]>, Vec<&[u8]>) {
+fn parse(input: &str) -> (Vec<&str>, Vec<&str>) {
     let mut lines = input.lines().map(str::trim).filter(|l| !l.is_empty());
-    let first_line = lines.next().unwrap();
-    let patterns = first_line.split(",").map(|p| p.trim().as_bytes()).collect();
-    (patterns, lines.map(str::as_bytes).collect())
+    (lines.next().unwrap().split(", ").collect(), lines.collect())
 }
 
-fn arrangements(patterns: &[&[u8]], design: &[u8]) -> usize {
+fn count(patterns: &[&str], design: &str) -> usize {
+    // memo[i] counts the ways to build the design up to position i
     let mut memo = vec![0; design.len() + 1];
     memo[0] = 1;
     for i in 0..design.len() {
@@ -20,18 +19,12 @@ fn arrangements(patterns: &[&[u8]], design: &[u8]) -> usize {
 
 pub fn solve(input: &str) -> usize {
     let (patterns, designs) = parse(input);
-    designs
-        .into_iter()
-        .filter(|d| arrangements(&patterns, d) > 0)
-        .count()
+    designs.iter().filter(|d| count(&patterns, d) > 0).count()
 }
 
 pub fn solve_2(input: &str) -> usize {
     let (patterns, designs) = parse(input);
-    designs
-        .into_iter()
-        .map(|d| arrangements(&patterns, d))
-        .sum()
+    designs.iter().map(|d| count(&patterns, d)).sum()
 }
 
 #[cfg(test)]
