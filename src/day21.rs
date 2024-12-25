@@ -1,9 +1,17 @@
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashMap, HashSet},
+    iter::repeat_n,
 };
 
 use itertools::{chain, Itertools};
+
+fn parse(input: &str) -> impl Iterator<Item = &str> {
+    input
+        .lines()
+        .map(str::trim)
+        .filter_map(|l| l.strip_suffix("A"))
+}
 
 fn make_keypad<const M: usize, const N: usize>(
     chars: &[[char; N]; M],
@@ -19,101 +27,89 @@ fn make_keypad<const M: usize, const N: usize>(
     result
 }
 
-fn parse(input: &str) -> impl Iterator<Item = &str> {
-    input
-        .lines()
-        .map(str::trim)
-        .filter_map(|l| l.strip_suffix("A"))
-}
-
-struct Keypad {
-    dpad: HashMap<(i32, i32), char>,
-}
-
-impl Keypad {
-    fn new() -> Self {
-        #[rustfmt::skip]
-        let dpad = make_keypad(&[
-            [' ', '^', 'A'],
-            ['<', 'v', '>'],
-        ]);
-        Self { dpad }
+fn calc_move_cost(
+    memo: &mut HashMap<((i32, i32), (i32, i32), usize), u64>,
+    pads: &[&HashMap<(i32, i32), char>],
+    start: (i32, i32),
+    end: (i32, i32),
+) -> u64 {
+    let Some((&keypad, &dpad)) = pads.into_iter().next_tuple() else {
+        return 1;
+    };
+    if end == start {
+        return 1;
     }
-
-    fn move_pad(
-        &self,
-        memo: &mut HashMap<((i32, i32), (i32, i32), u32), u64>,
-        keypad: &HashMap<(i32, i32), char>,
-        start: (i32, i32),
-        end: (i32, i32),
-        n_robots: u32,
-    ) -> u64 {
-        if end == start || n_robots == 0 {
-            return 1;
+    if let Some(&cost) = memo.get(&(start, end, pads.len())) {
+        return cost;
+    }
+    let (&accept, _) = dpad.iter().find(|&(_, v)| v == &'A').unwrap();
+    let mut queue: BinaryHeap<_> = [Reverse((0, accept, start))].into();
+    let mut seen = HashSet::new();
+    while let Some(Reverse((cost, parent, child))) = queue.pop() {
+        if !seen.insert((parent, child)) {
+            continue;
         }
-        if let Some(&cost) = memo.get(&(start, end, n_robots)) {
+        if (parent, child) == (accept, end) {
+            memo.insert((start, end, pads.len()), cost);
             return cost;
         }
-        let (&accept, _) = self.dpad.iter().find(|&(_, v)| v == &'A').unwrap();
-        let mut queue: BinaryHeap<_> = [Reverse((0, accept, start))].into();
-        let mut seen = HashSet::new();
-        while let Some(Reverse((cost, dpad, child))) = queue.pop() {
-            if !seen.insert((dpad, child)) {
-                continue;
-            }
-            if (dpad, child) == (accept, end) {
-                memo.insert((start, end, n_robots), cost);
-                return cost;
-            }
-            for (next_dpad, dir) in self.dpad.clone() {
-                let (dy, dx) = match dir {
-                    '^' => (-1, 0),
-                    '>' => (0, 1),
-                    'v' => (1, 0),
-                    '<' => (0, -1),
-                    'A' => (0, 0),
-                    _ => panic!(),
-                };
-                let next_child = (child.0 + dy, child.1 + dx);
-                if keypad.contains_key(&next_child) {
-                    let d_cost = self.move_pad(memo, &self.dpad, dpad, next_dpad, n_robots - 1);
-                    queue.push(Reverse((cost + d_cost, next_dpad, next_child)));
-                }
+        for (&next_parent, &dir) in dpad.iter() {
+            let (dy, dx) = match dir {
+                '^' => (-1, 0),
+                '>' => (0, 1),
+                'v' => (1, 0),
+                '<' => (0, -1),
+                'A' => (0, 0),
+                _ => panic!(),
+            };
+            let next_child = (child.0 + dy, child.1 + dx);
+            if keypad.contains_key(&next_child) {
+                let d_cost = calc_move_cost(memo, &pads[1..], parent, next_parent);
+                queue.push(Reverse((cost + d_cost, next_parent, next_child)));
             }
         }
-        panic!()
     }
+    panic!()
+}
 
-    fn solve(&self, code: &str, n_robots: u32) -> u64 {
-        let keypad = make_keypad(&[
-            ['7', '8', '9'],
-            ['4', '5', '6'],
-            ['1', '2', '3'],
-            [' ', '0', 'A'],
-        ]);
-        let mut memo: HashMap<((i32, i32), (i32, i32), u32), u64> = Default::default();
-        chain![['A'], code.chars(), ['A']]
-            .tuple_windows()
-            .map(|(start, end)| {
-                let (&start, _) = keypad.iter().find(|&(_, v)| v == &start).unwrap();
-                let (&end, _) = keypad.iter().find(|&(_, v)| v == &end).unwrap();
-                self.move_pad(&mut memo, &keypad, start, end, n_robots)
-            })
-            .sum()
-    }
+fn compute(
+    memo: &mut HashMap<((i32, i32), (i32, i32), usize), u64>,
+    n_robots: usize,
+    code: &str,
+) -> u64 {
+    #[rustfmt::skip]
+    let dpad = make_keypad(&[
+        [' ', '^', 'A'],
+        ['<', 'v', '>'],
+    ]);
+    let keypad = make_keypad(&[
+        ['7', '8', '9'],
+        ['4', '5', '6'],
+        ['1', '2', '3'],
+        [' ', '0', 'A'],
+    ]);
+    let pads: Vec<_> = chain!([&keypad], repeat_n(&dpad, n_robots)).collect();
+    chain![['A'], code.chars(), ['A']]
+        .tuple_windows()
+        .map(|(start, end)| {
+            let (&start, _) = keypad.iter().find(|&(_, v)| v == &start).unwrap();
+            let (&end, _) = keypad.iter().find(|&(_, v)| v == &end).unwrap();
+            calc_move_cost(memo, &pads[..], start, end)
+        })
+        .sum()
 }
 
 pub fn solve(input: &str) -> u64 {
-    let keypad = Keypad::new();
+    let mut memo = HashMap::new();
     parse(input)
-        .map(|code| keypad.solve(code, 3) * code.parse::<u64>().unwrap())
+        .map(|code| compute(&mut memo, 3, code) * code.parse::<u64>().unwrap())
         .sum()
 }
 
 pub fn solve_2(input: &str) -> u64 {
-    let keypad = Keypad::new();
+    let mut memo = HashMap::new();
     parse(input)
-        .map(|code| keypad.solve(code, 26) * code.parse::<u64>().unwrap())
+        .map(|code| compute(&mut memo, 26, code) * code.parse::<u64>().unwrap())
         .sum()
 }
 
